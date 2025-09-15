@@ -1,4 +1,4 @@
-# HealthyBites <img src="public\favicon.png" alt="HealthyBites Logo" width="24px" height="24px" />
+# HealthyBites <img src="client\public\favicon.png" alt="HealthyBites Logo" width="24px" height="24px" />
 
 
 [![React](https://img.shields.io/badge/React-17.0-blue?logo=react)](https://reactjs.org/) 
@@ -12,7 +12,7 @@
 
 HealthyBites is a web app that helps pet owners find healthy and affordable food for their pets. Users can input their pet’s details, see ranked lists of pet foods by quality and cost, and make smarter feeding decisions.
 
-<img src="src/assets/hbLogo.png" alt="HealthyBites Logo" width="300px" />
+<img src="client\src/assets/hbLogo.png" alt="HealthyBites Logo" width="300px" />
 
 ## Features
 
@@ -50,14 +50,14 @@ cd healthybites
 2. Install backend dependencies:
 
 ```bash
-cd backend
+cd server/
 npm install
 ```
 
 3. Install frontend dependencies:
 
 ```bash
-cd ../frontend
+cd client/
 npm install
 ```
 
@@ -71,14 +71,14 @@ PORT=5000
 
 Start the backend server:
 ```bash
-cd backend
-npm run dev
+cd server/
+npm start
 ```
 
 Start the frontend dev server:
 ```bash
-cd frontend
-npm run dev
+cd client/
+npm start
 ```
 
 Open your browser at http://localhost:5173 (or the port Vite specifies) to see the app.
