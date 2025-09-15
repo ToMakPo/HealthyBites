@@ -1,4 +1,4 @@
-# HealthyBites
+# HealthyBites <img src="public\favicon.png" alt="HealthyBites Logo" width="24px" height="24px" />
 
 
 [![React](https://img.shields.io/badge/React-17.0-blue?logo=react)](https://reactjs.org/) 
@@ -12,7 +12,7 @@
 
 HealthyBites is a web app that helps pet owners find healthy and affordable food for their pets. Users can input their pet’s details, see ranked lists of pet foods by quality and cost, and make smarter feeding decisions.
 
-![HealthyBites Logo](./public/hb%20-%20dog%20-%20cat%20-%20food%20image.png)
+<img src="src/assets/hbLogo.png" alt="HealthyBites Logo" width="300px" />
 
 ## Features
 
