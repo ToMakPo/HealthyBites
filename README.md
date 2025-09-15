@@ -1,12 +1,101 @@
-# React + Vite
+# HealthyBites
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-Currently, two official plugins are available:
+[![React](https://img.shields.io/badge/React-17.0-blue?logo=react)](https://reactjs.org/) 
+[![Vite](https://img.shields.io/badge/Vite-4.0-purple?logo=vite)](https://vitejs.dev/) 
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/) 
+[![Node.js](https://img.shields.io/badge/Node.js-20-green?logo=node.js)](https://nodejs.org/) 
+[![Express](https://img.shields.io/badge/Express-4.18-black?logo=express)](https://expressjs.com/) 
+[![MongoDB](https://img.shields.io/badge/MongoDB-6.0-green?logo=mongodb)](https://www.mongodb.com/) 
+[![Git](https://img.shields.io/badge/Git-2.43-orange?logo=git)](https://git-scm.com/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Expanding the ESLint configuration
+HealthyBites is a web app that helps pet owners find healthy and affordable food for their pets. Users can input their pet’s details, see ranked lists of pet foods by quality and cost, and make smarter feeding decisions.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+![HealthyBites Logo](./public/hb%20-%20dog%20-%20cat%20-%20food%20image.png)
+
+## Features
+
+- Add and manage pet food products (admin panel)
+- Evaluate food based on ingredient quality and cost per day
+- Calculate daily feeding costs based on pet weight and species
+- Display ranked list of foods with detailed ingredient info and purchase links
+- Built with modern technologies: React, Vite, TypeScript, SASS, Node.js, Express, and MongoDB
+
+
+## Tech Stack
+
+- **Frontend:** React, Vite, TypeScript, SASS (.sass syntax)
+- **Backend:** Node.js, Express, TypeScript
+- **Database:** MongoDB
+- **Version Control:** Git
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 18
+- MongoDB instance running locally or remotely
+- Git
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/healthybites.git
+cd healthybites
+```
+
+2. Install backend dependencies:
+
+```bash
+cd backend
+npm install
+```
+
+3. Install frontend dependencies:
+
+```bash
+cd ../frontend
+npm install
+```
+
+4. Configure environment variables (create a `.env` file in `backend`):
+```ini
+MONGO_URI=your_mongodb_connection_string
+PORT=5000
+```
+
+### Running the App
+
+Start the backend server:
+```bash
+cd backend
+npm run dev
+```
+
+Start the frontend dev server:
+```bash
+cd frontend
+npm run dev
+```
+
+Open your browser at http://localhost:5173 (or the port Vite specifies) to see the app.
+
+### Project Structure
+```bash
+healthybites/
+├─ backend/      # Express server, models, routes
+├─ frontend/     # React app, pages, components, styles
+├─ .gitignore
+├─ README.md
+```
+
+### Contributing
+
+This is a personal project, but feel free to fork or suggest improvements via GitHub issues or pull requests.
+
+### License
+
+MIT License
