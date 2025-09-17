@@ -5,11 +5,11 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000
 
 app.use(cors())
 
-app.get('/', (req, res) => {
+app.get('/', (req: any, res: { send: (arg0: string) => void }) => {
 	res.send('Hello from HealthyBites server!')
 })
 

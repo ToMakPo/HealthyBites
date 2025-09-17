@@ -1,4 +1,5 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
+import { Species } from './productModel'
 
 const ingredientSchema = new mongoose.Schema({
 	name: { type: String, required: true },
@@ -17,7 +18,75 @@ const ingredientSchema = new mongoose.Schema({
 
 const IngredientModel = mongoose.model('Ingredient', ingredientSchema)
 
-class Ingredient {
+interface IngredientEntry {
+	id: string
+	name: string
+	ratings: {
+		id: string
+		species: Species
+		healthRating: number | null
+		notes: string | null
+	}[]
+}
+
+interface IngredientInfo {
+	id: string
+	species: Species
+	healthRating: number | null
+	notes: string | null
+}
+
+interface FilterOptions {
+	id?: string
+	name?: string
+	species?: string
+	rating?: number | null
+	minRating?: number
+	maxRating?: number
+}
+
+/**
+ * Ingredient class to manage ingredient data and interactions with the database.
+ */
+class Ingredient implements IngredientInfo {
+	private _id?: string
+	private _name: string
+	private _species: Species
+	private _healthRating: number | null
+	private _notes: string | null
+
+	private constructor(id: string, name: string, species: Species, healthRating: number | null, notes: string | null) {
+		this._id = id
+		this._name = name
+		this._species = species
+		this._healthRating = healthRating
+		this._notes = notes
+	}
+
+	get id() {
+		return this._id ?? ''
+	}
+
+	get name() {
+		return this._name
+	}
+
+	get species() {
+		return this._species
+	}
+
+	get healthRating() {
+		return this._healthRating
+	}
+
+	get notes() {
+		return this._notes
+	}
+
+	//////////////////////
+	/// STATIC METHODS ///
+	//////////////////////
+
 	/**
 	 * Returns the Ingredient mongoose model.
 	 * 
@@ -31,14 +100,13 @@ class Ingredient {
 	 * Adds a new ingredient to the database.
 	 * 
 	 * @param {string} name - The name of the ingredient.
-	 * @param {Array} ratings - An array of rating objects for the ingredient.
-	 * - `species` {'cat' | 'dog'} - The species for the rating.
+	 * @param {IngredientEntry['ratings']} ratings - An array of rating objects for the ingredient.
+	 * - `species` {Species} - The species for the rating.
 	 * - `healthRating` {Number} - The health rating (10 to -10 scale).
 	 * - `notes` {String} - Any additional details about the ingredient.
-	 * @returns The created ingredient document.
 	 * @throws Will throw an error if the ingredient already exists.
 	 */
-	static async add(name, ratings) {
+	static async add(name: string, ratings: IngredientEntry['ratings']) {
 		// Check if the ingredient already exists.
 		const existing = await IngredientModel.findOne({ name })
 
@@ -52,7 +120,7 @@ class Ingredient {
 
 		// Create and save the new ingredient.
 		const ingredient = new IngredientModel({ name, ratings })
-		return await ingredient.save()
+		await ingredient.save()
 	}
 
 	/**
@@ -68,12 +136,12 @@ class Ingredient {
 	 * @returns An array of matching ingredient documents.
 	 * If no filters are provided, returns all ingredients.
 	 */
-	static async find({ id, name, species, rating, minRating, maxRating }) {
+	static async find({ id, name, species, rating, minRating, maxRating }: FilterOptions) {
 		// If id is provided, find by id.
 		if (id) return await IngredientModel.findById(id)
 
 		// Build the query object based on provided filters.
-		const query = {}
+		const query: Record<string, any> = {}
 
 		if (name !== undefined) query.name = new RegExp(name, 'i') // Case-insensitive regex search
 		if (species !== undefined) query['ratings.species'] = species
@@ -88,8 +156,57 @@ class Ingredient {
 			if (maxRating !== undefined) query['ratings.healthRating'] = { $lte: maxRating }
 		}
 
-		// Execute the query and return the results.
+		// Execute the query.
 		return await IngredientModel.find(query)
+	}
+
+	/**
+	 * Fetches the rating for a single ingredient for a given species.
+	 *
+	 * @param {Object} ingredient - The ingredient document to fetch the rating from.
+	 * @param {string} species - The species for which to fetch the rating ('cat' or 'dog').
+	 * @returns An instance of the Ingredient class with the rating for the specified species.
+	 * @throws Will throw an error if no rating is found for the specified species.
+	 */
+	static async getOne(ingredient: IngredientEntry, species: Species) {
+		// Find the index of the rating for the specified species.
+		const index = ingredient.ratings.findIndex(r => r.species === species)
+
+		// If rating doesn't exist, throw an error.
+		if (index === -1) throw new Error('No rating found for species: ' + species)
+
+		// Return a new Ingredient instance with the rating for the specified species.
+		return new Ingredient(
+			ingredient.id,
+			ingredient.name,
+			ingredient.ratings[index].species,
+			ingredient.ratings[index].healthRating,
+			ingredient.ratings[index].notes
+		)
+	}
+
+	/**
+	 * Fetches ratings for multiple ingredients for a given species.
+	 *
+	 * @param {IngredientEntry[]} ingredients - An array of ingredient documents to fetch ratings from.
+	 * @param {string} species - The species for which to fetch the ratings ('cat' or 'dog').
+	 * @returns An array of Ingredient instances with ratings for the specified species.
+	 * Ingredients without a rating for the specified species are skipped.
+	 */
+	static async getAll(ingredients: IngredientEntry[], species: Species) {
+		const results: Ingredient[] = []
+
+		for (const ingredient of ingredients) {
+			try {
+				const fetched = await Ingredient.getOne(ingredient, species)
+				results.push(fetched)
+			} catch (error) {
+				// If no rating found for the species, skip this ingredient.
+				continue
+			}
+		}
+
+		return results
 	}
 
 	/**
@@ -99,13 +216,15 @@ class Ingredient {
 	 * @param {Object} updates - An object containing the fields to update.
 	 * - `name` {String} - The new name of the ingredient.
 	 * - `ratings` {Array} - An array of new ratings to add or update.
-	 * >- `species` {'cat' | 'dog'} - The species for the rating.
+	 * >- `species` {Species} - The species for the rating.
 	 * >- `healthRating` {Number} - The health rating (10 to -10 scale).
 	 * >- `notes` {String} - Any additional details about the ingredient.
 	 * @returns The updated ingredient document.
 	 * @throws Will throw an error if the ingredient is not found or if no updates are provided.
 	 */
-	static async update(id, { name, ratings }) {
+	static async update(id: string, updates: Partial<IngredientEntry>) {
+		const { name, ratings } = updates
+
 		// Find the ingredient by id.
 		const ingredient = await IngredientModel.findById(id)
 
@@ -115,10 +234,10 @@ class Ingredient {
 		}
 
 		// Prepare the update object.
-		const update = {}
+		const update: Record<string, any> = {}
 
-		if (name) update.name = name
-		if (ratings) update.ratings = ratings // This will replace existing ratings; modify as needed for partial updates
+		if (name !== undefined) update.name = name
+		if (ratings !== undefined) update.ratings = ratings
 
 		// If no updates are provided, throw an error.
 		if (Object.keys(update).length === 0) {
@@ -140,7 +259,7 @@ class Ingredient {
 	 * @param {string} notes - Any additional details about the rating.
 	 * @returns The created or updated ingredient document.
 	 */
-	static async push(name, species, healthRating, notes) {
+	static async push(name: string, species: Species, healthRating?: number | null, notes?: string | null) {
 		// Find the ingredient by name.
 		const ingredient = await IngredientModel.findOne({ name })
 
@@ -150,7 +269,11 @@ class Ingredient {
 		if (!ingredient) {
 			const newIngredient = new IngredientModel({
 				name,
-				ratings: [{ species, healthRating, notes }],
+				ratings: [{ 
+					species, 
+					healthRating: healthRating ?? null, 
+					notes: notes ?? null
+				}],
 			})
 			return await newIngredient.save()
 		}
@@ -158,10 +281,21 @@ class Ingredient {
 		// Check if a rating for the same species already exists. If so, update the rating and notes.
 		const existingRating = ingredient.ratings.find(r => r.species === species)
 		if (existingRating) {
-			existingRating.healthRating = healthRating
-			existingRating.notes = notes
+			const update: Record<string, any> = {}
+
+			if (healthRating !== undefined) update.healthRating = healthRating
+			if (notes !== undefined) update.notes = notes
+
+			Object.assign(existingRating, update)
+
+			ingredient.markModified('ratings')
 		} else {
-			ingredient.ratings.push({ species, healthRating, notes })
+			// If no existing rating for the species, add a new rating.
+			ingredient.ratings.push({ 
+				species,
+				healthRating: healthRating ?? null,
+				notes: notes ?? null
+			})
 		}
 
 		// Save and return the updated ingredient.
@@ -169,17 +303,42 @@ class Ingredient {
 	}
 
 	/**
+	 * Adds or updates multiple ingredients in bulk.
+	 *
+	 * @param {Array} ingredients - An array of ingredient objects to add or update.
+	 * Each object should contain:
+	 * - `name` {String} - The name of the ingredient.
+	 * - `species` {Species} - The species for the rating ('cat' or 'dog').
+	 * - `healthRating` {Number} - The health rating (10 to -10 scale). Optional.
+	 * - `notes` {String} - Any additional details about the rating. Optional.
+	 * @returns An array of promises for each add/update operation.
+	 */
+	static async pushMany(ingredients: {name: string, species?: Species, healthRating?: number | null, notes?: string | null}[], 
+	species?: Species) {
+		return ingredients.map(async (ing) => {
+			// Use the provided species if not specified in the ingredient object.
+			const resolvedSpecies = ing.species ?? species
+
+			// If species is still not resolved, throw an error.
+			if (!resolvedSpecies) throw new Error(`Missing species for ingredient: ${ing.name}`)
+			
+			// Add or update the ingredient.
+			return await Ingredient.push(ing.name, resolvedSpecies, ing.healthRating, ing.notes)
+		})
+	}
+
+	/**
 	 * Adds a new rating to an existing ingredient.
 	 *
 	 * @param {string} id - The id of the ingredient to add a rating to.
 	 * @param {Object} rating - An object containing the rating details.
-	 * - `species` {'cat' | 'dog'} - The species for the rating.
+	 * - `species` {Species} - The species for the rating.
 	 * - `healthRating` {Number} - The health rating (10 to -10 scale).
 	 * - `notes` {String} - Any additional details about the rating.
 	 * @returns The updated ingredient document with the new rating added.
 	 * @throws Will throw an error if the ingredient is not found or if a rating for the same species already exists.
 	 */
-	static async addRating(id, { species, healthRating, notes }) {
+	static async addRating(id: any, { species, healthRating, notes }: any) {
 		// Find the ingredient by id.
 		const ingredient = await IngredientModel.findById(id)
 
@@ -211,7 +370,7 @@ class Ingredient {
 	 * @returns The updated ingredient document with the modified rating.
 	 * @throws Will throw an error if the ingredient or rating is not found, or if no updates are provided.
 	 */
-	static async updateRating(id, species, { healthRating, notes }) {
+	static async updateRating(id: any, species: string, { healthRating, notes }: any) {
 		// Find the ingredient by id.
 		const ingredient = await IngredientModel.findById(id)
 		
@@ -229,7 +388,7 @@ class Ingredient {
 		}
 
 		// Update the rating fields if provided.
-		const update = {}
+		const update: Record<string, any> = {}
 
 		if (healthRating !== undefined) update.healthRating = healthRating
 		if (notes !== undefined) update.notes = notes
@@ -246,7 +405,7 @@ class Ingredient {
 		return await ingredient.save()
 	}
 
-	static async removeRating(id, species) {
+	static async removeRating(id: any, species: string) {
 		// Find the ingredient by id.
 		const ingredient = await IngredientModel.findById(id)
 		
@@ -277,7 +436,7 @@ class Ingredient {
 	 * @returns The updated primary ingredient document.
 	 * @throws Will throw an error if either ingredient is not found.
 	 */
-	static async mergeDuplicates(primaryId, duplicateId) {
+	static async mergeDuplicates(primaryId: any, duplicateId: any) {
 		// Find both ingredients by their ids.
 		const primary = await IngredientModel.findById(primaryId)
 		const duplicate = await IngredientModel.findById(duplicateId)
@@ -311,7 +470,7 @@ class Ingredient {
 	 * @returns The deleted ingredient document.
 	 * @throws Will throw an error if the ingredient is not found.
 	 */
-	static async delete(id) {
+	static async delete(id: any) {
 		// Find and delete the ingredient by id.
 		const ingredient = await IngredientModel.findByIdAndDelete(id)
 

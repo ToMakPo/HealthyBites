@@ -9,12 +9,12 @@ const productSchema = new mongoose.Schema({
 		enum: ['cat', 'dog'],
 		required: true,
 	},
-	age: {
+	lifeStage: {
 		type: String,
 		enum: ['adult', 'young', 'all'],
 		required: true,
 	},
-	form: {
+	foodtype: {
 		type: String,
 		enum: ['dry', 'wet'],
 		required: true,
@@ -47,10 +47,127 @@ const productSchema = new mongoose.Schema({
 
 const ProductModel = mongoose.model('Product', productSchema)
 
+export type Species = 'cat' | 'dog'
+type FoodType = 'dry' | 'wet'
+type LifeStage = 'adult' | 'young' | 'all'
+type Unit = 'lb' | 'can'
+
+interface ProductEntry {
+	brand: string
+	flavor: string
+	species: Species
+	lifeStage: LifeStage
+	foodType: FoodType
+	ingredients: string[]
+	sizes: {
+		type: string
+		price: number
+		count: number
+		unit: Unit
+		links: string[]
+	}[]
+	feedingChart: {
+		minAge: number
+		maxAge: number
+		minWeight: number
+		maxWeight: number
+		minServing: number
+		maxServing: number
+	}[]
+}
+
+interface ProductInfo {
+	id: string
+	brand: string
+	flavor: string
+	species: Species
+	lifeStage: LifeStage
+	foodType: FoodType
+	ingredients: ProductEntry['ingredients']
+	sizes: ProductEntry['sizes']
+	feedingChart: ProductEntry['feedingChart']
+}
+
+interface FilterOptions {
+	id?: string
+	brand?: string
+	flavor?: string
+	species?: string
+	lifeStage?: string
+	foodtype?: string
+}
+
 /**
- * Product class to handle product-related operations.
+ * Product class to manage product data and interactions with the database.
  */
-class Product {
+class Product implements ProductInfo {
+	private _id: string
+	private _brand: string
+	private _flavor: string
+	private _species: Species
+	private _lifeStage: LifeStage
+	private _foodType: FoodType
+	private _ingredients: ProductInfo['ingredients']
+	private _sizes: ProductInfo['sizes']
+	private _feedingChart: ProductInfo['feedingChart']
+
+	private constructor(id: string, brand: string, flavor: string, species: Species, lifeStage: LifeStage, foodType: FoodType, 
+	ingredients: ProductInfo['ingredients'], sizes: ProductInfo['sizes'], feedingChart: ProductInfo['feedingChart']) {
+		this._id = id
+		this._brand = brand
+		this._flavor = flavor
+		this._species = species
+		this._lifeStage = lifeStage
+		this._foodType = foodType
+		this._ingredients = ingredients
+		this._sizes = sizes
+		this._feedingChart = feedingChart
+	}
+
+	get id() {
+		return this._id
+	}
+
+	get brand() {
+		return this._brand
+	}
+
+	get flavor() {
+		return this._flavor
+	}
+
+	get species() {
+		return this._species
+	}
+
+	get lifeStage() {
+		return this._lifeStage
+	}
+
+	get foodType() {
+		return this._foodType
+	}
+
+	get ingredients() {
+		return [...this._ingredients]
+	}
+
+	get sizes() {
+		return [...this._sizes]
+	}
+
+	get feedingChart() {
+		return [...this._feedingChart]
+	}
+
+	get qualityScore() {
+		return 0
+	}
+
+	//////////////////////
+	/// STATIC METHODS ///
+	//////////////////////
+
 	/**
 	 * Gets the Product mongoose model.
 	 * 
@@ -66,14 +183,14 @@ class Product {
 	 * @param {string} brand - The brand of the product.
 	 * @param {string} flavor - The flavor of the product.
 	 * @param {string} species - The species (e.g., cat or dog) for the product.
-	 * @param {string} age - The age category (e.g., adult or young) for the product.
-	 * @param {string} form - The form of the product (e.g., dry or wet).
-	 * @param {Array} ingredients - List of ingredients in the product.
+	 * @param {string} lifeStage - The target life stage of the pet (e.g., adult, young, all).
+	 * @param {string} foodtype - The foodtype of the product (e.g., dry or wet).
+	 * @param {Array} ingredients - List of ingredient names in the product.
 	 * @param {Array} sizes - List of available sizes with details.
 	 * - `type:` {String} - The type of packaging (e.g., bag, case, can)
 	 * - `price:` {Number} - The price of the product for this size.
 	 * - `count:` {Number} - The quantity of units in this size.
-	 * - `unit:` {'lb' | 'can'} - The unit of measurement.
+	 * - `unit:` {Unit} - The unit of measurement.
 	 * - `links:` {String[]} - URLs to purchase or learn more about this product.
 	 * @param {Array} feedingChart - Feeding chart details.
 	 * - `minAge` {Number} - The minimum age of the pet (in years).
@@ -83,11 +200,12 @@ class Product {
 	 * - `minServing` {Number} - The minimum serving size (cups or cans per day).
 	 * - `maxServing` {Number} - The maximum serving size (cups or cans per day).
 	 * @returns The newly created product document.
-	 * @throws Will throw an error if a product with the same brand, flavor, species, age, and form already exists.
+	 * @throws Will throw an error if a product with the same brand, flavor, species, lifeStage, and foodtype already exists.
 	 */
-	static async add(brand, flavor, species, age, form, ingredients, sizes, feedingChart) {
-		// Check if a product with the same brand, flavor, species, age, and form already exists.
-		const existingProduct = await ProductModel.findOne({ brand, flavor, species, age, form })
+	static async add(brand: string, flavor: string, species: Species, lifeStage: LifeStage, foodtype: FoodType,
+	ingredients: ProductEntry['ingredients'], sizes: ProductEntry['sizes'], feedingChart: ProductEntry['feedingChart']) {
+		// Check if a product with the same brand, flavor, species, lifeStage, and foodtype already exists.
+		const existingProduct = await ProductModel.findOne({ brand, flavor, species, lifeStage, foodtype })
 
 		// If it exists, throw an error.
 		if (existingProduct) {
@@ -95,12 +213,10 @@ class Product {
 		}
 
 		// Create and save the new product.
-		const newProduct = new ProductModel({ brand, flavor, species, age, form, ingredients, sizes, feedingChart })
+		const newProduct = new ProductModel({ brand, flavor, species, lifeStage, foodtype, ingredients, sizes, feedingChart })
 
-		// Loop through ingredients and add missing ones to the Ingredient collection.
-		for (const ingredientName of ingredients) {
-			await Ingredient.push(ingredientName, species, null, null)
-		}
+		// Push ingredients to the Ingredient collection, adding any missing ones.
+		Ingredient.pushMany(ingredients, species)
 
 		// Save and return the new product.
 		return await newProduct.save()
@@ -114,23 +230,23 @@ class Product {
 	 * - `brand`: The brand of the product.
 	 * - `flavor`: The flavor of the product.
 	 * - `species`: The species (e.g., cat or dog) for the product.
-	 * - `age`: The age category (e.g., adult or young) for the product.
-	 * - `form`: The form of the product (e.g., dry or wet).
+	 * - `lifeStage`: The lifeStage category (e.g., adult or young) for the product.
+	 * - `foodtype`: The foodtype of the product (e.g., dry or wet).
 	 * @returns A list of products matching the provided filters.
 	 * If no filters are provided, returns all products.
 	 */
-	static async find({ id, brand, flavor, species, age, form }) {
+	static async find({ id, brand, flavor, species, lifeStage, foodtype }: FilterOptions) {
 		// If id is provided, find by id.
 		if (id) return await ProductModel.findById(id)
 		
 		// Build the query object based on provided filters.
-		const query = {}
+		const query: Record<string, any> = {}
 
 		if (brand !== undefined) query.brand = brand
 		if (flavor !== undefined) query.flavor = flavor
 		if (species !== undefined) query.species = species
-		if (age !== undefined) query.age = { $in: [age, 'all'] }
-		if (form !== undefined) query.form = form
+		if (lifeStage !== undefined) query.lifeStage = { $in: [lifeStage, 'all'] }
+		if (foodtype !== undefined) query.foodtype = foodtype
 
 		// Execute the query and return the results.
 		return await ProductModel.find(query)
@@ -144,14 +260,14 @@ class Product {
 	 * - `brand` {String} - The new brand of the product.
 	 * - `flavor` {String} - The new flavor of the product.
 	 * - `species` {String} - The new species (e.g., cat or dog) for the product.
-	 * - `age` {String} - The new age category (e.g., adult or young) for the product.
-	 * - `form` {String} - The new form of the product (e.g., dry or wet).
+	 * - `lifeStage` {String} - The new lifeStage category (e.g., adult or young) for the product.
+	 * - `foodtype` {String} - The new foodtype of the product (e.g., dry or wet).
 	 * - `ingredients` {Array} - The new list of ingredients in the product.
 	 * - `sizes` {Array} - The new list of available sizes with details.
 	 * >- `type` {String} - The type of packaging (e.g., bag, case, can).
 	 * >- `price` {Number} - The price of the product for this size.
 	 * >- `count` {Number} - The quantity of units in this size.
-	 * >- `unit` {'lb' | 'can'} - The unit of measurement.
+	 * >- `unit` {Unit} - The unit of measurement.
 	 * >- `links` {String[]} - URLs to purchase or learn more about this product.
 	 * - `feedingChart` {Array} - The new feeding chart details.
 	 * >- `minAge` {Number} - The minimum age of the pet (in years).
@@ -163,7 +279,9 @@ class Product {
 	 * @return The updated product document.
 	 * @throws Will throw an error if the product is not found or if no updates are provided.
 	 */
-	static async update(id, { brand, flavor, species, age, form, ingredients, sizes, feedingChart }) {
+	static async update(id: string, updates: Partial<ProductEntry>) {
+		const { brand, flavor, species, lifeStage, foodType, ingredients, sizes, feedingChart } = updates
+
 		// Find the product by id.
 		const product = await ProductModel.findById(id)
 		
@@ -173,23 +291,21 @@ class Product {
 		}
 
 		// Prepare the update object.
-		const update = {}
+		const update: Record<string, any> = {}
 
-		if (brand) update.brand = brand
-		if (flavor) update.flavor = flavor
-		if (species) update.species = species
-		if (age) update.age = age
-		if (form) update.form = form
-		if (ingredients) {
+		if (brand !== undefined) update.brand = brand
+		if (flavor !== undefined) update.flavor = flavor
+		if (species !== undefined) update.species = species
+		if (lifeStage !== undefined) update.lifeStage = lifeStage
+		if (foodType !== undefined) update.foodType = foodType
+		if (ingredients !== undefined) {
 			update.ingredients = ingredients
 
-			// Loop through ingredients and add missing ones to the Ingredient collection.
-			for (const ingredientName of ingredients) {
-				await Ingredient.push(ingredientName, species || product.species, null, null)
-			}
+			// Push ingredients to the Ingredient collection, adding any missing ones.
+			Ingredient.pushMany(ingredients, species ?? product.species)
 		}
-		if (sizes) update.sizes = sizes
-		if (feedingChart) update.feedingChart = feedingChart
+		if (sizes !== undefined) update.sizes = sizes
+		if (feedingChart !== undefined) update.feedingChart = feedingChart
 
 		// If no updates are provided, throw an error.
 		if (Object.keys(update).length === 0) {
@@ -208,12 +324,14 @@ class Product {
 	 * - `type` {String} - The type of packaging (e.g., bag, case, can).
 	 * - `price` {Number} - The price of the product for this size.
 	 * - `count` {Number} - The quantity of units in this size.
-	 * - `unit` {'lb' | 'can'} - The unit of measurement.
+	 * - `unit` {Unit} - The unit of measurement.
 	 * - `links` {String[]} - URLs to purchase or learn more about this product.
 	 * @returns The updated product document with the new size added.
 	 * @throws Will throw an error if the product is not found or if size details are incomplete.
 	 */
-	static async addSize(productId, { type, price, count, unit, links }) {
+	static async addSize(productId: string, size: ProductEntry['sizes'][0]) {
+		const { type, price, count, unit, links } = size
+
 		// Find the product by id.
 		const product = await ProductModel.findById(productId)
 
@@ -243,12 +361,14 @@ class Product {
 	 * - `type` {String} - The new type of packaging (e.g., bag, case, can). Optional.
 	 * - `price` {Number} - The new price of the product for this size. Optional.
 	 * - `count` {Number} - The new quantity of units in this size. Optional.
-	 * - `unit` {'lb' | 'can'} - The new unit of measurement. Optional.
+	 * - `unit` {Unit} - The new unit of measurement. Optional.
 	 * - `links` {String[]} - The new URLs to purchase or learn more about this product. Optional.
 	 * @return The updated product document with the modified size.
 	 * @throws Will throw an error if the product or size is not found, or if no updates are provided.
 	 */
-	static async updateSize(productId, sizeId, { type, price, count, unit, links }) {
+	static async updateSize(productId: string, sizeId: string, updates: Partial<ProductEntry['sizes'][0]>) {
+		const { type, price, count, unit, links } = updates
+
 		// Find the product by id.
 		const product = await ProductModel.findById(productId)
 		
@@ -266,13 +386,13 @@ class Product {
 		}
 
 		// Update size details if provided.
-		const update = {}
+		const update: Record<string, any> = {}
 
-		if (type) update.type = type
-		if (price) update.price = price
-		if (count) update.count = count
-		if (unit) update.unit = unit
-		if (links) update.links = links
+		if (type !== undefined) update.type = type
+		if (price !== undefined) update.price = price
+		if (count !== undefined) update.count = count
+		if (unit !== undefined) update.unit = unit
+		if (links !== undefined) update.links = links
 
 		// If no updates are provided, throw an error.
 		if (Object.keys(update).length === 0) {
@@ -294,7 +414,7 @@ class Product {
 	 * @returns The updated product document with the size removed.
 	 * @throws Will throw an error if the product or size is not found.
 	 */
-	static async removeSize(productId, sizeId) {
+	static async removeSize(productId: any, sizeId: any) {
 		// Find the product by id.
 		const product = await ProductModel.findById(productId)
 
@@ -325,7 +445,7 @@ class Product {
 	 * @returns The deleted product document.
 	 * @throws Will throw an error if the product is not found.
 	 */
-	static async delete(id) {
+	static async delete(id: any) {
 		// Find the product by id.
 		const deletedProduct = await ProductModel.findByIdAndDelete(id)
 
