@@ -6,7 +6,7 @@ const router = Router()
 router.use('/api', apiRouter)
 
 router.get('/', (req, res) => {
-	res.send('Welcome to the HealthyBites Server. XXX')
+	res.send('Welcome to the HealthyBites Server.')
 })
 
 export default router

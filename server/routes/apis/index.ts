@@ -6,7 +6,7 @@ const router = Router()
 router.use('/products', productRouter)
 
 router.use('/', (req, res) => {
-	res.send('Welcome to the HealthyBites API. VVV')
+	res.send('Welcome to the HealthyBites API.')
 })
 
 export default router
