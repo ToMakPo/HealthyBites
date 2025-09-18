@@ -313,18 +313,19 @@ class Ingredient implements IngredientInfo {
 	 * - `notes` {String} - Any additional details about the rating. Optional.
 	 * @returns An array of promises for each add/update operation.
 	 */
-	static async pushMany(ingredients: {name: string, species?: Species, healthRating?: number | null, notes?: string | null}[], 
-	species?: Species) {
-		return ingredients.map(async (ing) => {
-			// Use the provided species if not specified in the ingredient object.
-			const resolvedSpecies = ing.species ?? species
-
-			// If species is still not resolved, throw an error.
-			if (!resolvedSpecies) throw new Error(`Missing species for ingredient: ${ing.name}`)
-			
-			// Add or update the ingredient.
-			return await Ingredient.push(ing.name, resolvedSpecies, ing.healthRating, ing.notes)
-		})
+	static async pushMany(ingredients: ({name: string, species: Species, healthRating?: number | null, notes?: string | null}[] 
+		| {names: string[], species: Species})) {
+		
+		if (Array.isArray(ingredients)) {
+			return ingredients.map(async (ing) => {
+				return await Ingredient.push(ing.name, ing.species, ing.healthRating, ing.notes)
+			})
+		} else {
+			const { names, species } = ingredients
+			return names.map(async (name) => {
+				return await Ingredient.push(name, species)
+			})
+		}
 	}
 
 	/**

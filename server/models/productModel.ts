@@ -14,7 +14,7 @@ const productSchema = new mongoose.Schema({
 		enum: ['adult', 'young', 'all'],
 		required: true,
 	},
-	foodtype: {
+	foodType: {
 		type: String,
 		enum: ['dry', 'wet'],
 		required: true,
@@ -22,7 +22,7 @@ const productSchema = new mongoose.Schema({
 	ingredients: [String],
 	sizes: [
 		{
-			type: String, // e.g. bag, case, can
+			packaging: String, // e.g. bag, case, can
 			price: Number,
 			count: Number,
 			unit: {
@@ -31,6 +31,7 @@ const productSchema = new mongoose.Schema({
 				required: true,
 			},
 			links: [String],
+			imageUrls: [String],
 		},
 	],
 	feedingChart: [
@@ -47,10 +48,11 @@ const productSchema = new mongoose.Schema({
 
 const ProductModel = mongoose.model('Product', productSchema)
 
+export type Packaging = 'bag' | 'case' | 'can'
 export type Species = 'cat' | 'dog'
-type FoodType = 'dry' | 'wet'
-type LifeStage = 'adult' | 'young' | 'all'
-type Unit = 'lb' | 'can'
+export type FoodType = 'dry' | 'wet'
+export type LifeStage = 'adult' | 'young' | 'all'
+export type Unit = 'lb' | 'can'
 
 interface ProductEntry {
 	brand: string
@@ -60,11 +62,12 @@ interface ProductEntry {
 	foodType: FoodType
 	ingredients: string[]
 	sizes: {
-		type: string
+		packaging: string
 		price: number
 		count: number
 		unit: Unit
 		links: string[]
+		imageUrls: string[]
 	}[]
 	feedingChart: {
 		minAge: number
@@ -88,13 +91,13 @@ interface ProductInfo {
 	feedingChart: ProductEntry['feedingChart']
 }
 
-interface FilterOptions {
+export interface FilterOptions {
 	id?: string
 	brand?: string
 	flavor?: string
-	species?: string
-	lifeStage?: string
-	foodtype?: string
+	species?: Species
+	lifeStage?: LifeStage
+	foodType?: FoodType
 }
 
 /**
@@ -182,16 +185,17 @@ class Product implements ProductInfo {
 	 * 
 	 * @param {string} brand - The brand of the product.
 	 * @param {string} flavor - The flavor of the product.
-	 * @param {string} species - The species (e.g., cat or dog) for the product.
-	 * @param {string} lifeStage - The target life stage of the pet (e.g., adult, young, all).
-	 * @param {string} foodtype - The foodtype of the product (e.g., dry or wet).
+	 * @param {Species} species - The species (e.g., cat or dog) for the product.
+	 * @param {LifeStage} lifeStage - The target life stage of the pet (e.g., adult, young, all).
+	 * @param {FoodType} foodType - The foodType of the product (e.g., dry or wet).
 	 * @param {Array} ingredients - List of ingredient names in the product.
 	 * @param {Array} sizes - List of available sizes with details.
-	 * - `type:` {String} - The type of packaging (e.g., bag, case, can)
+	 * - `packaging:` {Packaging} - The packaging of the product (e.g., bag, case, can).
 	 * - `price:` {Number} - The price of the product for this size.
 	 * - `count:` {Number} - The quantity of units in this size.
 	 * - `unit:` {Unit} - The unit of measurement.
 	 * - `links:` {String[]} - URLs to purchase or learn more about this product.
+	 * - `imageUrls:` {String[]} - URLs of images for this product.
 	 * @param {Array} feedingChart - Feeding chart details.
 	 * - `minAge` {Number} - The minimum age of the pet (in years).
 	 * - `maxAge` {Number} - The maximum age of the pet (in years).
@@ -200,12 +204,12 @@ class Product implements ProductInfo {
 	 * - `minServing` {Number} - The minimum serving size (cups or cans per day).
 	 * - `maxServing` {Number} - The maximum serving size (cups or cans per day).
 	 * @returns The newly created product document.
-	 * @throws Will throw an error if a product with the same brand, flavor, species, lifeStage, and foodtype already exists.
+	 * @throws Will throw an error if a product with the same brand, flavor, species, lifeStage, and foodType already exists.
 	 */
-	static async add(brand: string, flavor: string, species: Species, lifeStage: LifeStage, foodtype: FoodType,
+	static async add(brand: string, flavor: string, species: Species, lifeStage: LifeStage, foodType: FoodType,
 	ingredients: ProductEntry['ingredients'], sizes: ProductEntry['sizes'], feedingChart: ProductEntry['feedingChart']) {
-		// Check if a product with the same brand, flavor, species, lifeStage, and foodtype already exists.
-		const existingProduct = await ProductModel.findOne({ brand, flavor, species, lifeStage, foodtype })
+		// Check if a product with the same brand, flavor, species, lifeStage, and foodType already exists.
+		const existingProduct = await ProductModel.findOne({ brand, flavor, species, lifeStage, foodType })
 
 		// If it exists, throw an error.
 		if (existingProduct) {
@@ -213,10 +217,12 @@ class Product implements ProductInfo {
 		}
 
 		// Create and save the new product.
-		const newProduct = new ProductModel({ brand, flavor, species, lifeStage, foodtype, ingredients, sizes, feedingChart })
+		const newProduct = new ProductModel({ brand, flavor, species, lifeStage, foodType, ingredients, sizes, feedingChart })
+
+		console.log('LIST OF INGREDIENTS:', ingredients, 'FOR SPECIES:', species)
 
 		// Push ingredients to the Ingredient collection, adding any missing ones.
-		Ingredient.pushMany(ingredients, species)
+		Ingredient.pushMany({ names: ingredients, species })
 
 		// Save and return the new product.
 		return await newProduct.save()
@@ -229,13 +235,15 @@ class Product implements ProductInfo {
 	 * - `id`: The id of the product.
 	 * - `brand`: The brand of the product.
 	 * - `flavor`: The flavor of the product.
-	 * - `species`: The species (e.g., cat or dog) for the product.
-	 * - `lifeStage`: The lifeStage category (e.g., adult or young) for the product.
-	 * - `foodtype`: The foodtype of the product (e.g., dry or wet).
+	 * - `species`: The target species for the product (e.g., cat or dog).
+	 * - `lifeStage`: The life stage of the pet (e.g., adult, young, all).
+	 * - `foodType`: The type of food (e.g., dry or wet).
 	 * @returns A list of products matching the provided filters.
 	 * If no filters are provided, returns all products.
 	 */
-	static async find({ id, brand, flavor, species, lifeStage, foodtype }: FilterOptions) {
+	static async find(filters: FilterOptions) {
+		const { id, brand, flavor, species, lifeStage, foodType } = filters
+
 		// If id is provided, find by id.
 		if (id) return await ProductModel.findById(id)
 		
@@ -246,10 +254,14 @@ class Product implements ProductInfo {
 		if (flavor !== undefined) query.flavor = flavor
 		if (species !== undefined) query.species = species
 		if (lifeStage !== undefined) query.lifeStage = { $in: [lifeStage, 'all'] }
-		if (foodtype !== undefined) query.foodtype = foodtype
+		if (foodType !== undefined) query.foodType = foodType
+
+		console.log('Product find query:', query)
 
 		// Execute the query and return the results.
-		return await ProductModel.find(query)
+		return await ProductModel.find( 
+			
+		)
 	}
 
 	/**
@@ -259,16 +271,17 @@ class Product implements ProductInfo {
 	 * @param {Object} updates - An object containing the fields to update.
 	 * - `brand` {String} - The new brand of the product.
 	 * - `flavor` {String} - The new flavor of the product.
-	 * - `species` {String} - The new species (e.g., cat or dog) for the product.
-	 * - `lifeStage` {String} - The new lifeStage category (e.g., adult or young) for the product.
-	 * - `foodtype` {String} - The new foodtype of the product (e.g., dry or wet).
+	 * - `species` {Species} - The new species (e.g., cat or dog) for the product.
+	 * - `lifeStage` {LifeStage} - The new lifeStage category (e.g., adult or young) for the product.
+	 * - `foodType` {FoodType} - The new foodType of the product (e.g., dry or wet).
 	 * - `ingredients` {Array} - The new list of ingredients in the product.
 	 * - `sizes` {Array} - The new list of available sizes with details.
-	 * >- `type` {String} - The type of packaging (e.g., bag, case, can).
+	 * >- `packaging` {Packaging} - The packaging of the product (e.g., bag, case, can).
 	 * >- `price` {Number} - The price of the product for this size.
 	 * >- `count` {Number} - The quantity of units in this size.
 	 * >- `unit` {Unit} - The unit of measurement.
 	 * >- `links` {String[]} - URLs to purchase or learn more about this product.
+	 * >- `imageUrls` {String[]} - URLs of images for this product.
 	 * - `feedingChart` {Array} - The new feeding chart details.
 	 * >- `minAge` {Number} - The minimum age of the pet (in years).
 	 * >- `maxAge` {Number} - The maximum age of the pet (in years).
@@ -302,7 +315,6 @@ class Product implements ProductInfo {
 			update.ingredients = ingredients
 
 			// Push ingredients to the Ingredient collection, adding any missing ones.
-			Ingredient.pushMany(ingredients, species ?? product.species)
 		}
 		if (sizes !== undefined) update.sizes = sizes
 		if (feedingChart !== undefined) update.feedingChart = feedingChart
@@ -321,16 +333,17 @@ class Product implements ProductInfo {
 	 * 
 	 * @param {string} productId - The ID of the product to which the size will be added.
 	 * @param {Object} sizeDetails - An object containing the details of the size to add.
-	 * - `type` {String} - The type of packaging (e.g., bag, case, can).
+	 * - `packaging` {Packaging} - The packaging of the product (e.g., bag, case, can).
 	 * - `price` {Number} - The price of the product for this size.
 	 * - `count` {Number} - The quantity of units in this size.
 	 * - `unit` {Unit} - The unit of measurement.
 	 * - `links` {String[]} - URLs to purchase or learn more about this product.
+	 * - `imageUrls` {String[]} - URLs of images for this product.
 	 * @returns The updated product document with the new size added.
 	 * @throws Will throw an error if the product is not found or if size details are incomplete.
 	 */
 	static async addSize(productId: string, size: ProductEntry['sizes'][0]) {
-		const { type, price, count, unit, links } = size
+		const { packaging, price, count, unit, links, imageUrls } = size
 
 		// Find the product by id.
 		const product = await ProductModel.findById(productId)
@@ -341,12 +354,12 @@ class Product implements ProductInfo {
 		}
 
 		// Validate size details.
-		if (!type || !price || !count || !unit || !links) {
+		if (!packaging || !price || !count || !unit) {
 			throw new Error('Incomplete size details')
 		}
 
 		// Add the new size to the product.
-		product.sizes.push({ type, price, count, unit, links })
+		product.sizes.push({ packaging, price, count, unit, links: links ?? [], imageUrls: imageUrls ?? [] })
 
 		// Save the updated product.
 		return await product.save()
@@ -358,16 +371,17 @@ class Product implements ProductInfo {
 	 * @param {string} productId - The ID of the product containing the size to update.
 	 * @param {string} sizeId - The ID of the size to update.
 	 * @param {Object} updates - An object containing the fields to update.
-	 * - `type` {String} - The new type of packaging (e.g., bag, case, can). Optional.
-	 * - `price` {Number} - The new price of the product for this size. Optional.
-	 * - `count` {Number} - The new quantity of units in this size. Optional.
-	 * - `unit` {Unit} - The new unit of measurement. Optional.
-	 * - `links` {String[]} - The new URLs to purchase or learn more about this product. Optional.
+	 * - `packaging` {Packaging} - The new packaging of the product (e.g., bag, case, can).
+	 * - `price` {Number} - The new price of the product for this size.
+	 * - `count` {Number} - The new quantity of units in this size.
+	 * - `unit` {Unit} - The new unit of measurement.
+	 * - `links` {String[]} - The new URLs to purchase or learn more about this product.
+	 * - `imageUrls` {String[]} - The new URLs of images for this product.
 	 * @return The updated product document with the modified size.
 	 * @throws Will throw an error if the product or size is not found, or if no updates are provided.
 	 */
 	static async updateSize(productId: string, sizeId: string, updates: Partial<ProductEntry['sizes'][0]>) {
-		const { type, price, count, unit, links } = updates
+		const { packaging, price, count, unit, links, imageUrls } = updates
 
 		// Find the product by id.
 		const product = await ProductModel.findById(productId)
@@ -388,11 +402,12 @@ class Product implements ProductInfo {
 		// Update size details if provided.
 		const update: Record<string, any> = {}
 
-		if (type !== undefined) update.type = type
+		if (packaging !== undefined) update.packaging = packaging
 		if (price !== undefined) update.price = price
 		if (count !== undefined) update.count = count
 		if (unit !== undefined) update.unit = unit
 		if (links !== undefined) update.links = links
+		if (imageUrls !== undefined) update.imageUrls = imageUrls
 
 		// If no updates are provided, throw an error.
 		if (Object.keys(update).length === 0) {
@@ -459,4 +474,4 @@ class Product implements ProductInfo {
 	}
 }
 
-module.exports = Product
+export default Product
