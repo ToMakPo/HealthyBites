@@ -1,6 +1,0 @@
-{
-  "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/node": "^24.5.0"
-  }
-}
